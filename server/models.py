@@ -2,62 +2,60 @@
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
-from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy_serializer import SerializerMixin
 
-metadata = MetaData(naming_convention={
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-})
+    "pk": "pk_%(table_name)s"
+}
+
+metadata = MetaData(naming_convention=convention)
 
 db = SQLAlchemy(metadata=metadata)
 
-employee_meetings = db.Table(
-    'employees_meetings',
-    metadata,
-    db.Column('employee_id', db.Integer, db.ForeignKey(
-        'employees.id'), primary_key=True),
-    db.Column('meeting_id', db.Integer, db.ForeignKey(
-        'meetings.id'), primary_key=True)
-)
 
+class Zookeeper(db.Model, SerializerMixin):
+    __tablename__ = 'zookeepers'
 
-class Employee(db.Model):
-    __tablename__ = 'employees'
+    # don't forget that every tuple needs at least one comma!
+    serialize_rules = ('-animals.zookeeper',)
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    hire_date = db.Column(db.Date)
+    name = db.Column(db.String, unique=True)
+    birthday = db.Column(db.Date)
 
-    meetings = db.relationship(
-        'Meeting', secondary=employee_meetings, back_populates='employees')
-
-
-    def __repr__(self):
-        return f'<Employee {self.id}, {self.name}, {self.hire_date}>'
+    animals = db.relationship('Animal', back_populates='zookeeper')
 
 
-class Meeting(db.Model):
-    __tablename__ = 'meetings'
+class Enclosure(db.Model, SerializerMixin):
+    __tablename__ = 'enclosures'
+
+    serialize_rules = ('-animals.enclosure',)
 
     id = db.Column(db.Integer, primary_key=True)
-    topic = db.Column(db.String)
-    scheduled_time = db.Column(db.DateTime)
-    location = db.Column(db.String)
+    environment = db.Column(db.String)
+    open_to_visitors = db.Column(db.Boolean)
 
-    # Relationship mapping the meeting to related employees
-    employees = db.relationship(
-        'Employee', secondary=employee_meetings, back_populates='meetings')
+    animals = db.relationship('Animal', back_populates='enclosure')
 
 
-    def __repr__(self):
-        return f'<Meeting {self.id}, {self.topic}, {self.scheduled_time}, {self.location}>'
+class Animal(db.Model, SerializerMixin):
+    __tablename__ = 'animals'
 
-
-class Project(db.Model):
-    __tablename__ = 'projects'
+    serialize_rules = ('-zookeeper.animals', '-enclosure.animals',)
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String)
-    budget = db.Column(db.Integer)
+    name = db.Column(db.String, unique=True)
+    species = db.Column(db.String)
+
+    zookeeper_id = db.Column(db.Integer, db.ForeignKey('zookeepers.id'))
+    enclosure_id = db.Column(db.Integer, db.ForeignKey('enclosures.id'))
+
+    enclosure = db.relationship('Enclosure', back_populates='animals')
+    zookeeper = db.relationship('Zookeeper', back_populates='animals')
 
     def __repr__(self):
-        return f'<Review {self.id}, {self.title}, {self.budget}>'
+        return f'<Animal {self.name}, a {self.species}>'
