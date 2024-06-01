@@ -3,7 +3,9 @@
 
 import datetime
 from app import app
-from models import db, Employee, Meeting, Project
+from models import db, Employee, Meeting, Project, employee_meetings
+
+
 
 with app.app_context():
 
